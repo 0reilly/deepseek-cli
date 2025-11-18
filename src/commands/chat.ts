@@ -62,7 +62,7 @@ export async function chatCommand(message: string, options: ChatOptions) {
         }
         process.stdout.write(chunk);
         fullResponse += chunk;
-      console.log(chalk.yellow('\nStreaming failed, falling back to regular request...'));
+      });
 
       // Add newline after streaming completes
       console.log('\n');
