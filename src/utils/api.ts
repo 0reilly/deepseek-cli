@@ -20,7 +20,7 @@ export class DeepSeekAPI {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        timeout: 30000,
+        timeout: 60000, // Increased timeout to 60 seconds
       });
 
       return response.data;
@@ -44,7 +44,7 @@ export class DeepSeekAPI {
           'Content-Type': 'application/json',
         },
         responseType: 'stream',
-        timeout: 30000,
+        timeout: 60000, // Increased timeout to 60 seconds
       });
 
       let buffer = '';
@@ -53,7 +53,7 @@ export class DeepSeekAPI {
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
-        for (const line of lines) {
+      } catch (e) {
           if (line.startsWith('data: ') && line !== 'data: [DONE]') {
             try {
               const data = JSON.parse(line.slice(6));

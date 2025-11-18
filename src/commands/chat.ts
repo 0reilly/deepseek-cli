@@ -47,28 +47,57 @@ export async function chatCommand(message: string, options: ChatOptions) {
       messages,
       temperature: options.temperature || config.temperature,
       max_tokens: options.maxTokens || config.maxTokens,
-      stream: false,
+      stream: true, // Enable streaming by default
     };
 
-    const spinner = ora('Thinking...').start();
+    console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
+
+    let fullResponse = '';
+    let hasStarted = false;
 
     try {
-      const response = await api.chat(request);
-      spinner.stop();
+      await api.streamChat(request, (chunk: string) => {
+        if (!hasStarted) {
+          hasStarted = true;
+        }
+        process.stdout.write(chunk);
+        fullResponse += chunk;
+      console.log(chalk.yellow('\nStreaming failed, falling back to regular request...'));
 
-      const assistantMessage = response.choices[0]?.message?.content;
-      
-      if (assistantMessage) {
-        console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
-        console.log(assistantMessage);
-        console.log('\n' + chalk.gray(`Tokens: ${response.usage?.total_tokens || 'N/A'}`));
-      } else {
-        console.log(chalk.red('Error: No response received from DeepSeek API'));
-      }
+      // Add newline after streaming completes
+      console.log('\n');
+
+      // Estimate tokens (rough approximation)
+      const estimatedTokens = Math.ceil(fullResponse.length / 4);
+      console.log(chalk.gray(`Tokens: ~${estimatedTokens}`));
+
     } catch (error: any) {
-      spinner.stop();
-      console.log(chalk.red(`Error: ${error.message}`));
-      process.exit(1);
+      // If streaming fails, fall back to regular chat
+      console.log(chalk.yellow('\nStreaming failed, falling back to regular request...'));
+      
+      const spinner = ora('Thinking...').start();
+      
+      try {
+        const response = await api.chat({
+          ...request,
+          stream: false,
+        });
+        spinner.stop();
+
+        const assistantMessage = response.choices[0]?.message?.content;
+        
+        if (assistantMessage) {
+          console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
+          console.log(assistantMessage);
+          console.log('\n' + chalk.gray(`Tokens: ${response.usage?.total_tokens || 'N/A'}`));
+        } else {
+          console.log(chalk.red('Error: No response received from DeepSeek API'));
+        }
+      } catch (fallbackError: any) {
+        spinner.stop();
+        console.log(chalk.red(`Error: ${fallbackError.message}`));
+        process.exit(1);
+      }
     }
   } catch (error: any) {
     console.log(chalk.red(`Error: ${error.message}`));

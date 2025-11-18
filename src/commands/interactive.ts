@@ -4,6 +4,7 @@ import { getConfig } from '../utils/config';
 import { ChatOptions, DeepSeekMessage } from '../types';
 import chalk from 'chalk';
 import ora from 'ora';
+
 export async function interactiveCommand(options: ChatOptions) {
   try {
     const config = getConfig();
@@ -56,36 +57,73 @@ export async function interactiveCommand(options: ChatOptions) {
         messages,
         temperature: options.temperature || config.temperature,
         max_tokens: options.maxTokens || config.maxTokens,
-        stream: false,
+        stream: true, // Enable streaming
       };
 
-      const spinner = ora('Thinking...').start();
+      console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
+
+      let fullResponse = '';
+      let hasStarted = false;
 
       try {
-        const response = await api.chat(request);
-        spinner.stop();
+        await api.streamChat(request, (chunk: string) => {
+          if (!hasStarted) {
+            hasStarted = true;
+          }
+          process.stdout.write(chunk);
+          fullResponse += chunk;
+        });
 
-        const assistantMessage = response.choices[0]?.message?.content;
-        
-        if (assistantMessage) {
-          console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
-          console.log(assistantMessage);
-          console.log(chalk.gray(`\nTokens: ${response.usage?.total_tokens || 'N/A'}\n`));
+        // Add newline after streaming completes
+        console.log('\n');
 
-          // Add assistant response to conversation history
-          messages.push({
-            role: 'assistant',
-            content: assistantMessage,
-          });
-        } else {
-          console.log(chalk.red('Error: No response received from DeepSeek API'));
-        }
+        // Estimate tokens (rough approximation)
+        const estimatedTokens = Math.ceil(fullResponse.length / 4);
+        console.log(chalk.gray(`Tokens: ~${estimatedTokens}\n`));
+
+        // Add assistant response to conversation history
+        messages.push({
+          role: 'assistant',
+          content: fullResponse,
+        });
+
       } catch (error: any) {
-        spinner.stop();
-        console.log(chalk.red(`Error: ${error.message}`));
+        // If streaming fails, fall back to regular chat
+        console.log(chalk.yellow('\nStreaming failed, falling back to regular request...'));
         
-        // Remove the last user message if there was an error
-        messages.pop();
+        const spinner = ora('Thinking...').start();
+        
+        try {
+          const response = await api.chat({
+            ...request,
+            stream: false,
+          });
+          spinner.stop();
+
+          const assistantMessage = response.choices[0]?.message?.content;
+          
+          if (assistantMessage) {
+            console.log('\n' + chalk.blue('🤖 DeepSeek:') + '\n');
+            console.log(assistantMessage);
+            console.log(chalk.gray(`\nTokens: ${response.usage?.total_tokens || 'N/A'}\n`));
+
+            // Add assistant response to conversation history
+            messages.push({
+              role: 'assistant',
+              content: assistantMessage,
+            });
+          } else {
+            console.log(chalk.red('Error: No response received from DeepSeek API'));
+            // Remove the last user message if there was an error
+            messages.pop();
+          }
+        } catch (fallbackError: any) {
+          spinner.stop();
+          console.log(chalk.red(`Error: ${fallbackError.message}`));
+          
+          // Remove the last user message if there was an error
+          messages.pop();
+        }
       }
     }
   } catch (error: any) {

@@ -5,7 +5,7 @@ A powerful command-line interface for interacting with DeepSeek V3.2 AI models. 
 ## Features
 
 - 🤖 **Interactive Chat Mode**: Have natural conversations with DeepSeek AI
-- 📁 **File Processing**: Read and process text files directly
+- 🌍 **Streaming Responses**: Real-time streaming of AI responses
 - ⚙️ **Configuration Management**: Save your API key and preferences
 - 🔄 **Conversation History**: Maintain context across multiple messages
 - 🎨 **Beautiful Output**: Colored and formatted responses
